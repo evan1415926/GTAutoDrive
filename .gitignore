@@ -19,3 +19,12 @@ debug_output.avi
 *.log
 .DS_Store
 Thumbs.db
+
+# Training artifacts
+data/recordings/*
+!data/recordings/.gitkeep
+data/models/*
+!data/models/.gitkeep
+*.png
+*.jpg
+*.npz
