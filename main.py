@@ -109,11 +109,15 @@ class GTAutoDrive:
                 time.sleep(0.01)
                 continue
 
-            # Resize + BGR->RGB
+            # Resize + BGR->RGB + normalize
             small = cv2.resize(frame, (fw, fh))
             small_rgb = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
             tensor = torch.from_numpy(small_rgb).permute(2, 0, 1).unsqueeze(0)
-            tensor = tensor.float().to(self.device)
+            tensor = tensor.float().div(255).to(self.device)
+            # ImageNet normalization (must match training transforms)
+            tensor[:, 0] = (tensor[:, 0] - 0.485) / 0.229
+            tensor[:, 1] = (tensor[:, 1] - 0.456) / 0.224
+            tensor[:, 2] = (tensor[:, 2] - 0.406) / 0.225
 
             # Inference
             with torch.no_grad():

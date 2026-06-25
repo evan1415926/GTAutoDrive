@@ -4,6 +4,9 @@ from torch.utils.data import Dataset, DataLoader, Subset
 import numpy as np
 from torchvision.transforms import v2
 
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
+
 
 class DrivingDataset(Dataset):
     """Dataset of (frame, label) pairs with optional transforms."""
@@ -24,7 +27,7 @@ class DrivingDataset(Dataset):
         if self.transform is not None:
             img = self.transform(img)
         else:
-            # Default: uint8 → float32 tensor, [0, 255] range
+            # Default: uint8 -> float32 tensor, [0, 255] range
             img = torch.from_numpy(img).permute(2, 0, 1).float()
 
         label = torch.tensor(label, dtype=torch.long)
@@ -32,24 +35,26 @@ class DrivingDataset(Dataset):
 
 
 def get_train_transforms():
-    """Training augmentations: keep RGB in [0, 255] float.
+    """Training augmentations + ImageNet normalization.
 
-    NOTE: No RandomHorizontalFlip — steering direction (A↔D, WA↔WD) would
-    need label mirroring. Left for future improvement.
+    NOTE: No RandomHorizontalFlip because steering direction (A<->D, WA<->WD)
+    would need label mirroring.
     """
     return v2.Compose([
         v2.ToImage(),
-        v2.ToDtype(torch.float32, scale=False),  # [0, 255]
+        v2.ToDtype(torch.float32, scale=True),   # uint8 -> float [0, 1]
         v2.ColorJitter(brightness=0.2, contrast=0.2),
         v2.RandomAffine(degrees=3, translate=(0.06, 0.0)),
+        v2.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
     ])
 
 
 def get_val_transforms():
-    """Validation: just convert to tensor."""
+    """Validation: tensor conversion + ImageNet normalization."""
     return v2.Compose([
         v2.ToImage(),
-        v2.ToDtype(torch.float32, scale=False),  # [0, 255]
+        v2.ToDtype(torch.float32, scale=True),   # uint8 -> float [0, 1]
+        v2.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
     ])
 
 
