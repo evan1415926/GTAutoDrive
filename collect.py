@@ -7,9 +7,9 @@ Hotkeys:
 """
 import sys
 import time
+import ctypes
 import cv2
 import numpy as np
-import keyboard
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -18,6 +18,18 @@ from config.settings import AppConfig
 from capture.screen_capture import ScreenCapture
 from data.collector import DataCollector
 from utils.fps_counter import FPSCounter
+
+# ── Win32 key-state helpers (no admin required) ────────────────────────
+_user32 = ctypes.windll.user32
+_VK = {
+    'w': 0x57, 'a': 0x41, 's': 0x53, 'd': 0x44,
+    'f5': 0x74, 'f6': 0x75, 'f8': 0x77,
+}
+
+
+def _is_pressed(key: str) -> bool:
+    return bool(_user32.GetAsyncKeyState(_VK[key]) & 0x8000)
+# ────────────────────────────────────────────────────────────────────────
 
 
 def main():
@@ -52,12 +64,12 @@ def main():
 
     try:
         while True:
-            if keyboard.is_pressed('f8'):
+            if _is_pressed('f8'):
                 print("\nF8 pressed — exit.")
                 break
 
             # F5 toggle with debounce
-            f5_now = keyboard.is_pressed('f5')
+            f5_now = _is_pressed('f5')
             if f5_now and not f5_was_pressed:
                 if collector.is_recording:
                     collector.stop()
@@ -66,7 +78,7 @@ def main():
             f5_was_pressed = f5_now
 
             # F6 toggle with debounce
-            f6_now = keyboard.is_pressed('f6')
+            f6_now = _is_pressed('f6')
             if f6_now and not f6_was_pressed:
                 collector.toggle_mode()
             f6_was_pressed = f6_now
@@ -83,10 +95,10 @@ def main():
                 cv2.waitKey(1)
                 continue
 
-            w = keyboard.is_pressed('w')
-            a = keyboard.is_pressed('a')
-            s = keyboard.is_pressed('s')
-            d = keyboard.is_pressed('d')
+            w = _is_pressed('w')
+            a = _is_pressed('a')
+            s = _is_pressed('s')
+            d = _is_pressed('d')
 
             if collector.is_recording:
                 collector.capture(frame, w, a, s, d)
@@ -125,7 +137,7 @@ def _build_panel(collector, fps_val, w, a, s, d, thumbnail):
     # REC indicator (red dot + text)
     if collector.is_recording:
         cv2.circle(panel, (10, bar_y + 15), 6, (0, 0, 255), -1)
-        status_text = f"REC"
+        status_text = "REC"
         status_color = (0, 0, 255)
     else:
         cv2.circle(panel, (10, bar_y + 15), 6, (80, 80, 80), -1)
@@ -154,3 +166,7 @@ def _build_panel(collector, fps_val, w, a, s, d, thumbnail):
                 (120, 120, 120), 1)
 
     return panel
+
+
+if __name__ == "__main__":
+    main()

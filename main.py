@@ -11,6 +11,7 @@ Usage:
 """
 import sys
 import time
+import ctypes
 import argparse
 from pathlib import Path
 
@@ -19,13 +20,20 @@ sys.path.insert(0, str(Path(__file__).parent))
 import cv2
 import torch
 import numpy as np
-import keyboard
 from config.settings import AppConfig, IDX_TO_LABEL
 from capture.screen_capture import ScreenCapture
 from input.input_simulator import InputSimulator
 from model.network import create_model
 from utils.fps_counter import FPSCounter
 from utils.debug_overlay import draw_overlay
+
+# ── Win32 key-state helper ─────────────────────────────────────────────
+_user32 = ctypes.windll.user32
+_VK_MAP = {'f8': 0x77, 'q': 0x51}
+
+
+def _is_key_down(name: str) -> bool:
+    return bool(_user32.GetAsyncKeyState(_VK_MAP.get(name, 0)) & 0x8000)
 
 
 class GTAutoDrive:
@@ -135,7 +143,7 @@ class GTAutoDrive:
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
-            if frame_count % 5 == 0 and keyboard.is_pressed(
+            if frame_count % 5 == 0 and _is_key_down(
                     self.config.keys.panic_key):
                 print("\n[!] Emergency stop!")
                 break
