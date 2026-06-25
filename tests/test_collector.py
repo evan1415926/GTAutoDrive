@@ -36,8 +36,8 @@ class TestDataCollector:
         self.coll.start()
         self.coll.capture(make_frame(), w=True, a=False, s=False, d=False)
         self.coll.stop()
-        # Should have created data/recordings/W/frame_00000.png
-        expected = Path(self.tmpdir) / "W" / "frame_00000.png"
+        # Should have created train/W/frame_00000.png
+        expected = Path(self.tmpdir) / "train" / "W" / "frame_00000.png"
         assert expected.exists()
         # Verify dimensions
         img = cv2.imread(str(expected))
@@ -49,9 +49,9 @@ class TestDataCollector:
         self.coll.capture(make_frame(), w=True, a=True, s=False, d=False)   # WA
         self.coll.capture(make_frame(), w=False, a=False, s=True, d=False)  # S
         self.coll.stop()
-        assert (Path(self.tmpdir) / "W" / "frame_00000.png").exists()
-        assert (Path(self.tmpdir) / "WA" / "frame_00001.png").exists()
-        assert (Path(self.tmpdir) / "S" / "frame_00002.png").exists()
+        assert (Path(self.tmpdir) / "train" / "W" / "frame_00000.png").exists()
+        assert (Path(self.tmpdir) / "train" / "WA" / "frame_00001.png").exists()
+        assert (Path(self.tmpdir) / "train" / "S" / "frame_00002.png").exists()
         assert self.coll.frame_count == 3
 
     def test_toggle_mode(self):

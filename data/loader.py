@@ -1,26 +1,44 @@
-"""Load recorded training data from PNG files on disk."""
+"""Load recorded training data from PNG files on disk.
+
+Directory layout (new):
+  data/recordings/train/W/frame_*.png
+  data/recordings/recovery/W/frame_*.png
+
+Old layout (no mode subdir) is still auto-detected.
+"""
 from pathlib import Path
 import numpy as np
 import cv2
 from config.settings import LABELS, LABEL_TO_IDX
 
 
-def load_data(data_dir: str) -> tuple[np.ndarray, np.ndarray]:
-    """Scan data_dir for label subdirs, load all PNGs.
+def load_data(data_dir: str, mode: str | None = 'train') -> tuple[np.ndarray, np.ndarray]:
+    """Scan data_dir, load PNGs filtered by recording mode.
+
+    Args:
+        data_dir: root directory (e.g. 'data/recordings')
+        mode: 'train' / 'recovery' / None (load all, old format compat)
 
     Returns:
         frames: (N, H, W, 3) uint8 RGB array
         labels: (N,) int64 array of class indices (0-6)
     """
+    base = Path(data_dir)
+
+    # Auto-detect: new layout has train/ subdir
+    if mode is not None and (base / mode).is_dir():
+        search_root = base / mode
+    else:
+        search_root = base
+
     frames_list = []
     labels_list = []
 
     for label in LABELS:
-        label_dir = Path(data_dir) / label
+        label_dir = search_root / label
         if not label_dir.is_dir():
             continue
         for png_file in sorted(label_dir.glob("frame_*.png")):
-            # OpenCV reads as BGR, convert to RGB
             img_bgr = cv2.imread(str(png_file))
             if img_bgr is None:
                 print(f"[WARN] Corrupt file: {png_file}")
@@ -31,14 +49,14 @@ def load_data(data_dir: str) -> tuple[np.ndarray, np.ndarray]:
 
     if not frames_list:
         raise FileNotFoundError(
-            f"No frame PNGs found in {data_dir}. "
+            f"No frame PNGs found in {search_root}. "
             f"Expected subdirs: {LABELS}"
         )
 
     frames = np.stack(frames_list, axis=0)
     labels = np.array(labels_list, dtype=np.int64)
     print(f"Loaded {len(frames)} frames, {len(labels)} labels "
-          f"from {data_dir}")
+          f"from {search_root}")
     return frames, labels
 
 

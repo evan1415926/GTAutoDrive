@@ -37,6 +37,8 @@ def main():
                         help="Override learning rate")
     parser.add_argument("--balance-cap", type=int, default=500,
                         help="Max samples per class (default 500; 0 = no cap)")
+    parser.add_argument("--include-recovery", action="store_true",
+                        help="Also load recovery-mode frames")
     args = parser.parse_args()
 
     config = AppConfig()
@@ -59,9 +61,10 @@ def main():
     print(f"Bal cap:   {args.balance_cap if args.balance_cap > 0 else 'equal'}")
     print("=" * 50)
 
-    # Load
+    # Load (default: train mode only)
     print("\n[1/3] Loading data...")
-    frames, labels = load_data(args.data)
+    mode = None if args.include_recovery else 'train'
+    frames, labels = load_data(args.data, mode=mode)
 
     # Balance
     print("\n[2/3] Balancing classes...")

@@ -1,9 +1,8 @@
 """Data collector: record (frame, action) pairs for behavior cloning.
 
-Frames saved as PNG files organized by label class:
-  data/recordings/W/frame_00001.png
-  data/recordings/WA/frame_00002.png
-  ...
+Frames saved as PNG files organized by mode + label class:
+  data/recordings/train/W/frame_00001.png
+  data/recordings/recovery/W/frame_00002.png
 """
 import time
 from pathlib import Path
@@ -57,7 +56,7 @@ class DataCollector:
             return
 
         label = keys_to_label(w, a, s, d)
-        label_dir = self.save_dir / label
+        label_dir = self.save_dir / self._mode / label
         label_dir.mkdir(parents=True, exist_ok=True)
 
         # Resize frame (keep BGR — cv2.imwrite expects BGR)
