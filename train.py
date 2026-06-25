@@ -35,6 +35,8 @@ def main():
                         help="Override batch size")
     parser.add_argument("--lr", type=float, default=None,
                         help="Override learning rate")
+    parser.add_argument("--balance-cap", type=int, default=500,
+                        help="Max samples per class (default 500; 0 = no cap)")
     args = parser.parse_args()
 
     config = AppConfig()
@@ -54,6 +56,7 @@ def main():
     print(f"Epochs:    {config.train.epochs}")
     print(f"Batch:     {config.train.batch_size}")
     print(f"LR:        {config.train.learning_rate}")
+    print(f"Bal cap:   {args.balance_cap if args.balance_cap > 0 else 'equal'}")
     print("=" * 50)
 
     # Load
@@ -62,7 +65,8 @@ def main():
 
     # Balance
     print("\n[2/3] Balancing classes...")
-    frames, labels = balance_classes(frames, labels)
+    cap = args.balance_cap if args.balance_cap > 0 else None
+    frames, labels = balance_classes(frames, labels, cap=cap)
 
     # DataLoaders
     train_loader, val_loader = create_dataloaders(
