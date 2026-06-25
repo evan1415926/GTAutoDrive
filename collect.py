@@ -56,7 +56,7 @@ def main():
 
     win_name = "GTAutoDrive - Collection"
     cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(win_name, 320, 240)
+    cv2.resizeWindow(win_name, 320, 52)
     cv2.setWindowProperty(win_name, cv2.WND_PROP_TOPMOST, 1)
 
     last_frame_time = 0.0
@@ -105,11 +105,8 @@ def main():
 
             fps.update()
 
-            # Build compact 320x240 display panel
-            panel = _build_panel(
-                collector, fps.get(), w, a, s, d,
-                thumbnail=cv2.resize(frame, (320, 180)),
-            )
+            # Build compact status bar
+            panel = _build_panel(collector, fps.get(), w, a, s, d)
             cv2.imshow(win_name, panel)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -122,48 +119,40 @@ def main():
         print("Clean exit.")
 
 
-def _build_panel(collector, fps_val, w, a, s, d, thumbnail):
-    """Render a compact 320x240 status panel with thumbnail."""
-    h, w_px = 240, 320
+def _build_panel(collector, fps_val, w, a, s, d):
+    """Render a compact 320x52 status bar."""
+    h, w_px = 52, 320
     panel = np.zeros((h, w_px, 3), dtype=np.uint8)
-
-    # Thumbnail at top
-    panel[0:180, 0:320] = thumbnail
-
-    # Status bar (bottom 60px)
-    bar_y = 180
-    cv2.rectangle(panel, (0, bar_y), (w_px, h), (30, 30, 30), -1)
+    cv2.rectangle(panel, (0, 0), (w_px, h), (30, 30, 30), -1)
 
     # REC indicator (red dot + text)
     if collector.is_recording:
-        cv2.circle(panel, (10, bar_y + 15), 6, (0, 0, 255), -1)
+        cv2.circle(panel, (10, h // 2), 6, (0, 0, 255), -1)
         status_text = "REC"
         status_color = (0, 0, 255)
     else:
-        cv2.circle(panel, (10, bar_y + 15), 6, (80, 80, 80), -1)
+        cv2.circle(panel, (10, h // 2), 6, (80, 80, 80), -1)
         status_text = "IDLE"
         status_color = (128, 128, 128)
 
     cv2.putText(panel, f"{status_text} | {collector.mode} | {collector.frame_count}fr",
-                (22, bar_y + 21), cv2.FONT_HERSHEY_SIMPLEX, 0.45,
-                status_color, 1)
+                (22, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.42, status_color, 1)
     cv2.putText(panel, f"FPS:{fps_val:.0f}",
-                (22, bar_y + 43), cv2.FONT_HERSHEY_SIMPLEX, 0.4,
-                (180, 180, 180), 1)
+                (22, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (180, 180, 180), 1)
 
-    # Key state indicators (right side of bar)
+    # Key state indicators (right side)
     keys = [('W', w), ('A', a), ('S', s), ('D', d)]
     for i, (name, pressed) in enumerate(keys):
-        kx = 160 + i * 42
+        kx = 175 + i * 38
         col = (0, 255, 0) if pressed else (60, 60, 60)
-        cv2.rectangle(panel, (kx, bar_y + 5), (kx + 36, bar_y + 27), col, -1)
-        cv2.putText(panel, name, (kx + 10, bar_y + 23),
+        cv2.rectangle(panel, (kx, 4), (kx + 32, 26), col, -1)
+        cv2.putText(panel, name, (kx + 8, 22),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
 
-    # Hint line
+    # Hint
     cv2.putText(panel, "F5:Rec F6:Mode F8:Exit",
-                (10, h - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.35,
-                (120, 120, 120), 1)
+                (10, h - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.3,
+                (100, 100, 100), 1)
 
     return panel
 
