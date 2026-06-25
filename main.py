@@ -96,7 +96,10 @@ class GTAutoDrive:
         print(f"Running! Model input: {fw}x{fh}. "
               f"Press {self.config.keys.panic_key} to stop.")
 
-        cv2.namedWindow("GTAutoDrive", cv2.WINDOW_NORMAL)
+        win_name = "GTAutoDrive"
+        cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(win_name, 960, 540)
+        cv2.setWindowProperty(win_name, cv2.WND_PROP_TOPMOST, 1)
         self.running = True
         frame_count = 0
 
@@ -142,7 +145,7 @@ class GTAutoDrive:
             frame_count += 1
             display = draw_overlay(frame, action, self.fps.get(),
                                    self._ema_probs)
-            cv2.imshow("GTAutoDrive", cv2.resize(display, (960, 540)))
+            cv2.imshow(win_name, cv2.resize(display, (960, 540)))
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
