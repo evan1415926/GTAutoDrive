@@ -20,12 +20,11 @@ sys.path.insert(0, str(Path(__file__).parent))
 import cv2
 import torch
 import numpy as np
-from config.settings import AppConfig, IDX_TO_LABEL
+from config.settings import AppConfig, IDX_TO_LABEL, LABELS
 from capture.screen_capture import ScreenCapture
 from input.input_simulator import InputSimulator
 from model.network import create_model
 from utils.fps_counter import FPSCounter
-from utils.debug_overlay import draw_overlay
 
 # ── Win32 key-state helper ─────────────────────────────────────────────
 _user32 = ctypes.windll.user32
@@ -98,7 +97,7 @@ class GTAutoDrive:
 
         win_name = "GTAutoDrive"
         cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(win_name, 960, 540)
+        cv2.resizeWindow(win_name, 320, 160)
         cv2.setWindowProperty(win_name, cv2.WND_PROP_TOPMOST, 1)
         self.running = True
         frame_count = 0
@@ -143,9 +142,9 @@ class GTAutoDrive:
             # Debug display
             self.fps.update()
             frame_count += 1
-            display = draw_overlay(frame, action, self.fps.get(),
-                                   self._ema_probs)
-            cv2.imshow(win_name, cv2.resize(display, (960, 540)))
+            panel = _build_inference_panel(action, self.fps.get(),
+                                           self._ema_probs)
+            cv2.imshow(win_name, panel)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
@@ -168,6 +167,45 @@ class GTAutoDrive:
         self.capture.close()
         cv2.destroyAllWindows()
         print("GTAutoDrive stopped. All keys released.")
+
+
+ACTION_COLORS = {
+    'W': (0, 255, 0), 'WA': (255, 200, 0), 'WD': (0, 200, 255),
+    'A': (255, 128, 0), 'D': (255, 0, 128), 'S': (0, 0, 255),
+    'NONE': (128, 128, 128),
+}
+
+
+def _build_inference_panel(action, fps_val, probs):
+    """Render a compact 320x160 status panel (no camera feed)."""
+    h, w = 160, 320
+    panel = np.zeros((h, w, 3), dtype=np.uint8)
+    cv2.rectangle(panel, (0, 0), (w, h), (20, 20, 20), -1)
+
+    # Action indicator (large, center-top)
+    color = ACTION_COLORS.get(action, (255, 255, 255))
+    cv2.putText(panel, action, (130, 38), cv2.FONT_HERSHEY_SIMPLEX,
+                1.2, color, 3)
+    cv2.putText(panel, f"FPS:{fps_val:.0f}", (8, 17),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 200, 0), 1)
+
+    # Probability bars
+    bar_x, bar_w = 70, 240
+    bar_h, bar_gap = 12, 3
+    for i, (label, prob) in enumerate(zip(LABELS, probs)):
+        y = 48 + i * (bar_h + bar_gap)
+        color_i = ACTION_COLORS.get(label, (255, 255, 255))
+        bw = int(prob * bar_w)
+        cv2.rectangle(panel, (bar_x, y), (bar_x + bw, y + bar_h),
+                      color_i, -1)
+        cv2.putText(panel, f"{label}", (4, y + bar_h - 2),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.35, color_i, 1)
+        cv2.putText(panel, f"{prob:.2f}", (bar_x + bw + 4, y + bar_h - 2),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.28, (180, 180, 180), 1)
+
+    cv2.putText(panel, "F8:Exit", (w - 58, h - 6),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.32, (100, 100, 100), 1)
+    return panel
 
 
 def main():
