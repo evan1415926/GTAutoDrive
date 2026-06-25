@@ -40,7 +40,7 @@ def keys_to_label(w: bool, a: bool, s: bool, d: bool) -> str:
 
 @dataclass
 class CaptureConfig:
-    monitor_index: int = 0          # dxcam output_idx (0=primary)
+    monitor_index: int = 1          # mss monitor index (1=primary, 0=all)
     target_fps: int = 30
     capture_width: int = 1920
     capture_height: int = 1080

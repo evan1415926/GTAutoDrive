@@ -1,6 +1,7 @@
-"""Screen capture via dxcam (DXGI desktop duplication)."""
+"""Screen capture via mss (cross-platform screenshot using GDI)."""
 import cv2
 import numpy as np
+import mss
 from config.settings import CaptureConfig
 
 
@@ -10,37 +11,29 @@ class ScreenCapture:
         self._target_w = config.capture_width
         self._target_h = config.capture_height
         self._fps = config.target_fps
-        self._camera = None
+        self._sct = None
 
     def open(self) -> bool:
-        import dxcam
         try:
-            self._camera = dxcam.create(
-                output_idx=self._monitor,
-                output_color="BGR",
-            )
-            if self._camera is None:
-                print(f"[CAPTURE] Monitor {self._monitor} unavailable.")
+            self._sct = mss.MSS()
+            if self._monitor >= len(self._sct.monitors):
+                print(f"[CAPTURE] Monitor {self._monitor} unavailable. "
+                      f"Available: {len(self._sct.monitors)}")
                 return False
-            # Warm up
-            test = self._camera.grab()
-            if test is None:
-                print("[CAPTURE] Grab returned None — try running GTA in "
-                      "borderless window mode.")
-                return False
+            monitor = self._sct.monitors[self._monitor]
             print(f"[CAPTURE] Monitor {self._monitor} "
-                  f"({test.shape[1]}x{test.shape[0]}) ready.")
+                  f"({monitor['width']}x{monitor['height']}) ready.")
             return True
         except Exception as e:
             print(f"[CAPTURE] Error opening capture: {e}")
             return False
 
     def read(self) -> np.ndarray | None:
-        if self._camera is None:
+        if self._sct is None:
             return None
-        frame = self._camera.grab()
-        if frame is not None and (frame.shape[1] != self._target_w
-                                  or frame.shape[0] != self._target_h):
+        img = self._sct.grab(self._sct.monitors[self._monitor])
+        frame = np.array(img)[:, :, :3]  # BGRA -> BGR
+        if frame.shape[1] != self._target_w or frame.shape[0] != self._target_h:
             frame = cv2.resize(frame, (self._target_w, self._target_h))
         return frame
 
@@ -49,6 +42,6 @@ class ScreenCapture:
         return (self._target_w, self._target_h)
 
     def close(self):
-        if self._camera is not None:
-            del self._camera
-            self._camera = None
+        if self._sct is not None:
+            self._sct.close()
+            self._sct = None
