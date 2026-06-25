@@ -65,6 +65,7 @@ class GTAutoDrive:
         # Smoothing
         self._ema_probs = np.ones(config.model.num_classes) / config.model.num_classes
         self._alpha = config.inference.ema_alpha
+        self._conf_thresh = config.inference.confidence_threshold
 
         # Debug
         self.fps = FPSCounter()
@@ -130,9 +131,13 @@ class GTAutoDrive:
             self._ema_probs = (self._alpha * probs +
                                (1 - self._alpha) * self._ema_probs)
 
-            # Argmax -> action
+            # Argmax -> action, but NONE if confidence too low
             action_idx = int(np.argmax(self._ema_probs))
-            action = IDX_TO_LABEL[action_idx]
+            max_prob = self._ema_probs[action_idx]
+            if max_prob < self._conf_thresh:
+                action = 'NONE'
+            else:
+                action = IDX_TO_LABEL[action_idx]
             self._current_action = action
 
             # Apply
@@ -143,7 +148,7 @@ class GTAutoDrive:
             self.fps.update()
             frame_count += 1
             panel = _build_inference_panel(action, self.fps.get(),
-                                           self._ema_probs)
+                                           self._ema_probs, self._conf_thresh)
             cv2.imshow(win_name, panel)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -176,18 +181,21 @@ ACTION_COLORS = {
 }
 
 
-def _build_inference_panel(action, fps_val, probs):
+def _build_inference_panel(action, fps_val, probs, conf_thresh=0.3):
     """Render a compact 320x160 status panel (no camera feed)."""
     h, w = 160, 320
     panel = np.zeros((h, w, 3), dtype=np.uint8)
     cv2.rectangle(panel, (0, 0), (w, h), (20, 20, 20), -1)
 
     # Action indicator (large, center-top)
+    max_prob = np.max(probs)
+    locked = max_prob < conf_thresh
     color = ACTION_COLORS.get(action, (255, 255, 255))
-    cv2.putText(panel, action, (130, 38), cv2.FONT_HERSHEY_SIMPLEX,
-                1.2, color, 3)
-    cv2.putText(panel, f"FPS:{fps_val:.0f}", (8, 17),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 200, 0), 1)
+    action_text = f"{action}" if not locked else f"NONE (low conf)"
+    cv2.putText(panel, action_text, (90, 38), cv2.FONT_HERSHEY_SIMPLEX,
+                0.9, color, 2)
+    cv2.putText(panel, f"FPS:{fps_val:.0f}  max:{max_prob:.2f}", (8, 17),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 200, 0), 1)
 
     # Probability bars
     bar_x, bar_w = 70, 240

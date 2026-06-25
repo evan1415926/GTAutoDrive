@@ -76,7 +76,8 @@ class TrainConfig:
 
 @dataclass
 class InferenceConfig:
-    ema_alpha: float = 0.4          # probs = α*new + (1-α)*prev
+    ema_alpha: float = 0.15         # probs = α*new + (1-α)*prev (lower = smoother)
+    confidence_threshold: float = 0.3  # NONE if max prob < threshold
     target_fps: int = 30
 
 
