@@ -47,6 +47,7 @@ def main():
         print("Live lane detection running. Press Q to quit.")
         cv2.namedWindow("Lane Test", cv2.WINDOW_NORMAL)
         cv2.resizeWindow("Lane Test", 960, 540)
+        cv2.setWindowProperty("Lane Test", cv2.WND_PROP_TOPMOST, 1)
         while True:
             frame = capture.read()
             if frame is None:

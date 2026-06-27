@@ -59,6 +59,7 @@ def main():
         print("Live detection running. Press Q to quit.")
         cv2.namedWindow("Detection Test", cv2.WINDOW_NORMAL)
         cv2.resizeWindow("Detection Test", 960, 540)
+        cv2.setWindowProperty("Detection Test", cv2.WND_PROP_TOPMOST, 1)
         while True:
             frame = capture.read()
             if frame is None:

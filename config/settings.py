@@ -90,6 +90,10 @@ class PerceptionConfig:
     lane_n_windows: int = 9
     lane_window_margin: int = 80
     lane_min_pixels: int = 50
+    # Perspective transform tuning (in ROI coordinates, as fraction)
+    lane_persp_top_y: float = 0.40       # vanishing point Y in ROI (0=top of ROI)
+    lane_persp_margin_top: float = 0.15  # horizontal margin at top of trapezoid
+    lane_persp_margin_bot: float = 0.10  # horizontal margin at bottom of trapezoid
 
 
 @dataclass

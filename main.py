@@ -55,6 +55,9 @@ class GTAutoDrive:
             n_windows=pc.lane_n_windows,
             window_margin=pc.lane_window_margin,
             min_pixels=pc.lane_min_pixels,
+            persp_top_y=pc.lane_persp_top_y,
+            persp_margin_top=pc.lane_persp_margin_top,
+            persp_margin_bot=pc.lane_persp_margin_bot,
         )
 
         # Planner

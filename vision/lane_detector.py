@@ -20,6 +20,9 @@ class LaneDetector:
                  hsv_white_upper: tuple = (180, 40, 255),
                  hsv_yellow_lower: tuple = (18, 80, 120),
                  hsv_yellow_upper: tuple = (40, 255, 255),
+                 persp_top_y: float = 0.40,        # vanishing point Y in ROI (0=top of ROI)
+                 persp_margin_top: float = 0.15,    # horizontal margin at top (fraction of frame width)
+                 persp_margin_bot: float = 0.10,    # horizontal margin at bottom
                  perspective_src: tuple | None = None,
                  perspective_dst: tuple | None = None,
                  n_windows: int = 9,
@@ -30,6 +33,9 @@ class LaneDetector:
         self._white_hi = np.array(hsv_white_upper)
         self._yellow_lo = np.array(hsv_yellow_lower)
         self._yellow_hi = np.array(hsv_yellow_upper)
+        self._persp_top_y = persp_top_y
+        self._persp_margin_top = persp_margin_top
+        self._persp_margin_bot = persp_margin_bot
         self._src = perspective_src
         self._dst = perspective_dst
         self._n_windows = n_windows
@@ -131,10 +137,10 @@ class LaneDetector:
         if self._src is None:
             # Default source: trapezoid in original image coords (ROI-space)
             roi_h = h - int(h * self._roi_top)
-            top_y = int(roi_h * 0.40)
+            top_y = int(roi_h * self._persp_top_y)
             bot_y = roi_h - 1
-            margin_top = int(w * 0.15)
-            margin_bot = int(w * 0.10)
+            margin_top = int(w * self._persp_margin_top)
+            margin_bot = int(w * self._persp_margin_bot)
             self._src = np.float32([
                 (margin_top, top_y),                  # top-left
                 (w - margin_top, top_y),              # top-right
