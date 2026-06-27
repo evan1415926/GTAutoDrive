@@ -25,7 +25,22 @@ def balance_classes(frames: np.ndarray,
     for i, label in enumerate(LABELS):
         print(f"  {label}: {counts[i]}")
 
-    max_count = cap if cap is not None else counts[counts > 0].min()
+    if cap is None:
+        max_count = counts[counts > 0].min()   # strict balance
+    elif cap == 0:
+        max_count = int(counts.max())           # no balancing, keep all
+    else:
+        max_count = cap
+
+    # Short-circuit: no balancing needed — shuffle in-place
+    if max_count >= counts.max():
+        print(f"After balance: {len(frames)} frames (no change)")
+        state = np.random.get_state()
+        np.random.shuffle(frames)
+        np.random.set_state(state)
+        np.random.shuffle(labels)
+        return frames, labels
+
     balanced_frames = []
     balanced_labels = []
 
@@ -42,10 +57,11 @@ def balance_classes(frames: np.ndarray,
     result_frames = np.concatenate(balanced_frames, axis=0)
     result_labels = np.concatenate(balanced_labels, axis=0)
 
-    # Shuffle
-    perm = np.random.permutation(len(result_frames))
-    result_frames = result_frames[perm]
-    result_labels = result_labels[perm]
+    # Shuffle in-place (avoid doubling memory with stacked data)
+    state = np.random.get_state()
+    np.random.shuffle(result_frames)
+    np.random.set_state(state)
+    np.random.shuffle(result_labels)
 
     print(f"After balance: {len(result_frames)} frames "
           f"(max {max_count} per class)")

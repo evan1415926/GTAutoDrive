@@ -51,7 +51,7 @@ def test_label_to_keys_every_label_covered():
 def test_appconfig_defaults():
     cfg = AppConfig()
     assert cfg.model.num_classes == 7
-    assert cfg.train.batch_size == 64
+    assert cfg.train.batch_size == 256
     assert cfg.inference.ema_alpha == 0.15
-    assert cfg.inference.confidence_threshold == 0.3
+    assert cfg.inference.confidence_threshold == 0.2
     assert cfg.keys.panic_key == 'f8'

@@ -1,9 +1,12 @@
-"""Training loop with early stopping and learning rate scheduling."""
+"""Training loop with early stopping, LR scheduling, and AMP mixed precision."""
 import time
 import torch
 import torch.nn as nn
+from torch.amp import autocast, GradScaler
 import numpy as np
 from config.settings import TrainConfig, LABELS
+
+torch.backends.cudnn.benchmark = True
 
 
 class Trainer:
@@ -25,6 +28,7 @@ class Trainer:
             self.optimizer, mode='min', patience=config.lr_patience,
             factor=0.5, min_lr=1e-5
         )
+        self.scaler = GradScaler('cuda')
 
         self.best_val_loss = float('inf')
         self.best_epoch = 0
@@ -33,7 +37,7 @@ class Trainer:
     def train(self) -> dict:
         """Run full training. Returns history dict."""
         history = {'train_loss': [], 'val_loss': [], 'val_acc': []}
-        print(f"Training on {self.device}")
+        print(f"Training on {self.device}  (AMP: enabled)")
         print(f"Train batches: {len(self.train_loader)}, "
               f"Val batches: {len(self.val_loader)}")
 
@@ -57,11 +61,13 @@ class Trainer:
                   f"LR: {lr:.1e} | "
                   f"Time: {elapsed:.1f}s")
 
-            # Early stopping
+            # Early stopping + checkpoint
             if val_loss < self.best_val_loss:
                 self.best_val_loss = val_loss
                 self.best_epoch = epoch + 1
                 self.patience_counter = 0
+                self.best_state = {k: v.cpu().clone()
+                                   for k, v in self.model.state_dict().items()}
             else:
                 self.patience_counter += 1
                 if self.patience_counter >= self.config.early_stop_patience:
@@ -71,6 +77,7 @@ class Trainer:
 
         print(f"Best val loss: {self.best_val_loss:.4f} "
               f"at epoch {self.best_epoch}")
+        history['best_state'] = self.best_state
         return history
 
     def _train_epoch(self):
@@ -79,9 +86,11 @@ class Trainer:
         for x, y in self.train_loader:
             x, y = x.to(self.device), y.to(self.device)
             self.optimizer.zero_grad()
-            loss = self.criterion(self.model(x), y)
-            loss.backward()
-            self.optimizer.step()
+            with autocast('cuda'):
+                loss = self.criterion(self.model(x), y)
+            self.scaler.scale(loss).backward()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
             total_loss += loss.item()
         return total_loss / len(self.train_loader)
 
@@ -90,13 +99,27 @@ class Trainer:
         total_loss = 0.0
         correct = 0
         total = 0
+        per_class_correct = [0] * len(LABELS)
+        per_class_total = [0] * len(LABELS)
         with torch.no_grad():
             for x, y in self.val_loader:
                 x, y = x.to(self.device), y.to(self.device)
-                logits = self.model(x)
-                loss = self.criterion(logits, y)
+                with autocast('cuda'):
+                    logits = self.model(x)
+                    loss = self.criterion(logits, y)
                 total_loss += loss.item()
                 preds = logits.argmax(dim=1)
                 correct += (preds == y).sum().item()
                 total += y.size(0)
-        return total_loss / len(self.val_loader), correct / total
+                for i in range(len(LABELS)):
+                    mask = (y == i)
+                    per_class_total[i] += mask.sum().item()
+                    per_class_correct[i] += (preds[mask] == i).sum().item()
+        acc = correct / total
+        parts = []
+        for i, label in enumerate(LABELS):
+            if per_class_total[i] > 0:
+                pacc = per_class_correct[i] / per_class_total[i]
+                parts.append(f"{label}:{pacc:.0%}")
+        print(f"  Per-class: {' '.join(parts)}")
+        return total_loss / len(self.val_loader), acc

@@ -64,21 +64,41 @@ class ModelConfig:
 
 @dataclass
 class TrainConfig:
-    batch_size: int = 64
-    learning_rate: float = 1e-3
+    batch_size: int = 256
+    learning_rate: float = 5e-4
     epochs: int = 100
     early_stop_patience: int = 15
     lr_patience: int = 5
     val_split: float = 0.2
-    num_workers: int = 2
+    num_workers: int = 4
     device: str = "cuda"
 
 
 @dataclass
 class InferenceConfig:
     ema_alpha: float = 0.15         # probs = α*new + (1-α)*prev (lower = smoother)
-    confidence_threshold: float = 0.3  # NONE if max prob < threshold
+    confidence_threshold: float = 0.2  # NONE if max prob < threshold
+    w_bias: float = 0.5             # added to W logit (positive = prefer forward)
     target_fps: int = 30
+
+
+@dataclass
+class PerceptionConfig:
+    detection_conf: float = 0.35
+    detection_size: tuple = (640, 384)
+    lane_roi_top: float = 0.55
+    lane_n_windows: int = 9
+    lane_window_margin: int = 80
+    lane_min_pixels: int = 50
+
+
+@dataclass
+class PlannerConfig:
+    emergency_brake_dist: float = 0.10
+    obstacle_brake_dist: float = 0.22
+    lane_offset_thresh: float = 0.25
+    steer_gain: float = 2.5
+    curve_steer_gain: float = 0.8
 
 
 @dataclass
@@ -97,4 +117,6 @@ class AppConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     train: TrainConfig = field(default_factory=TrainConfig)
     inference: InferenceConfig = field(default_factory=InferenceConfig)
+    perception: PerceptionConfig = field(default_factory=PerceptionConfig)
+    planner: PlannerConfig = field(default_factory=PlannerConfig)
     keys: KeysConfig = field(default_factory=KeysConfig)

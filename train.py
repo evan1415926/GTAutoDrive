@@ -5,6 +5,7 @@ Usage:
     python train.py --data data/recordings   # custom data dir
     python train.py --cpu                    # force CPU
     python train.py --epochs 50              # override epoch count
+    python train.py --stacked                # 4-frame temporal stacking
 """
 import sys
 import argparse
@@ -14,10 +15,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import torch
 from config.settings import AppConfig
-from data.loader import load_data
+from data.loader import load_data, load_data_stacked
 from data.balancer import balance_classes
 from model.network import create_model
-from model.dataset import create_dataloaders
+from model.dataset import create_dataloaders, create_stacked_dataloaders
 from model.trainer import Trainer
 
 
@@ -39,6 +40,8 @@ def main():
                         help="Max samples per class (default 500; 0 = no cap)")
     parser.add_argument("--include-recovery", action="store_true",
                         help="Also load recovery-mode frames")
+    parser.add_argument("--stacked", action="store_true",
+                        help="Use 4-frame temporal stacking")
     args = parser.parse_args()
 
     config = AppConfig()
@@ -48,6 +51,8 @@ def main():
         config.train.epochs = args.epochs
     if args.batch_size:
         config.train.batch_size = args.batch_size
+    elif args.stacked:
+        config.train.batch_size = 64  # 12-channel input needs less batch memory
     if args.lr:
         config.train.learning_rate = args.lr
 
@@ -58,42 +63,70 @@ def main():
     print(f"Epochs:    {config.train.epochs}")
     print(f"Batch:     {config.train.batch_size}")
     print(f"LR:        {config.train.learning_rate}")
-    print(f"Bal cap:   {args.balance_cap if args.balance_cap > 0 else 'equal'}")
+    print(f"Stacked:   {args.stacked}")
+    if args.balance_cap == 0:
+        bal_label = "none"
+    elif args.balance_cap > 0:
+        bal_label = str(args.balance_cap)
+    else:
+        bal_label = "equal"
+    print(f"Bal cap:   {bal_label}")
     print("=" * 50)
 
     # Load (default: train mode only)
     print("\n[1/3] Loading data...")
     mode = None if args.include_recovery else 'train'
-    frames, labels = load_data(args.data, mode=mode)
+
+    if args.stacked:
+        frames, labels = load_data_stacked(args.data, mode=mode,
+                                           stack_size=4, stride=1)
+    else:
+        frames, labels = load_data(args.data, mode=mode)
 
     # Balance
     print("\n[2/3] Balancing classes...")
-    cap = args.balance_cap if args.balance_cap > 0 else None
+    if args.balance_cap == 0:
+        cap = 0       # 0 means "no cap, use all data"
+    elif args.balance_cap > 0:
+        cap = args.balance_cap
+    else:
+        cap = None    # None means strict balance (min class)
     frames, labels = balance_classes(frames, labels, cap=cap)
 
     # DataLoaders
-    train_loader, val_loader = create_dataloaders(
-        frames, labels,
-        batch_size=config.train.batch_size,
-        val_split=config.train.val_split,
-        num_workers=config.train.num_workers,
-    )
+    input_channels = 12 if args.stacked else 3
+    if args.stacked:
+        train_loader, val_loader = create_stacked_dataloaders(
+            frames, labels,
+            batch_size=config.train.batch_size,
+            val_split=config.train.val_split,
+            num_workers=0,  # must be 0: 12ch×6903 stacks too large to pickle
+        )
+    else:
+        train_loader, val_loader = create_dataloaders(
+            frames, labels,
+            batch_size=config.train.batch_size,
+            val_split=config.train.val_split,
+            num_workers=config.train.num_workers,
+        )
 
     # Model
     print("\n[3/3] Training...")
     model = create_model(
         num_classes=config.model.num_classes,
         dropout=config.model.dropout,
+        input_channels=input_channels,
     )
     trainer = Trainer(model, train_loader, val_loader, config.train)
     history = trainer.train()
 
-    # Save
+    # Save best checkpoint (not the overfit final model)
     model_path = Path(config.model.model_dir)
     model_path.mkdir(parents=True, exist_ok=True)
     save_path = model_path / config.model.model_name
-    torch.save(model.state_dict(), save_path)
-    print(f"\nModel saved to {save_path}")
+    best_state = history.pop('best_state', model.state_dict())
+    torch.save(best_state, save_path)
+    print(f"\nModel saved to {save_path} (best epoch from early stopping)")
 
     # Final metrics
     best_val_acc = max(history['val_acc'])
